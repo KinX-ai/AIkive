@@ -57,9 +57,13 @@ async def gemini_voice_loop(api_key, sys_prompt, q_text, q_video_files, q_audio_
                 "--outfile", tmp_mp4,
                 "--nosmooth" # Tắt smooth để render lẹ
             ]
-            subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            result = subprocess.run(cmd, capture_output=True, text=True)
             
-            print("[Wav2Lip] Gọt miệng xong! Đẩy lên Facebook.")
+            if result.returncode != 0:
+                print("[Wav2Lip] BỊ SẬP! Lỗi chi tiết:")
+                print(result.stderr)
+            else:
+                print("[Wav2Lip] Gọt miệng xong! Đẩy lên Facebook.")
             
             # 3. Quăng video và audio vào hàng đợi cho luồng phát xơi
             q_video_files.put_nowait(tmp_mp4)
