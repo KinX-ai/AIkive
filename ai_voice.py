@@ -18,7 +18,7 @@ async def gemini_voice_loop(api_key, sys_prompt, q_text, q_audio):
         
         try:
             # Kết nối Live API (Websocket)
-            async with client.aio.live.connect(model="gemini-2.0-flash-exp", config=config) as session:
+            async with client.aio.live.connect(model="gemini-3.1-flash-live-preview", config=config) as session:
                 await session.send(input=text, end_of_turn=True)
                 
                 async for response in session.receive():
