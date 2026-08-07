@@ -9,9 +9,9 @@ import ai_voice
 
 global_chat_queue = queue.Queue()
 
-def run_app(media_path, rtmp_url, api_key, prompt):
+def run_app(media_path, rtmp_url, api_key, prompt, voice_name):
     print("[Core] Đang khởi động luồng stream ngầm...")
-    asyncio.run(main_loop(media_path, rtmp_url, api_key, prompt))
+    asyncio.run(main_loop(media_path, rtmp_url, api_key, prompt, voice_name))
 
 async def fetch_dummy_comments(q_text):
     while True:
@@ -70,7 +70,7 @@ def video_writer_task(process, media_path, base_frame, q_video_files):
             break
         time.sleep(0.033)
 
-async def main_loop(media_path, rtmp_url, api_key, prompt):
+async def main_loop(media_path, rtmp_url, api_key, prompt, voice_name):
     q_text = asyncio.Queue()
     q_video_files = queue.Queue()
     q_audio_bytes = queue.Queue()
@@ -101,7 +101,7 @@ async def main_loop(media_path, rtmp_url, api_key, prompt):
             
     asyncio.create_task(fetch_dummy_comments(q_text))
     # Nạp cơ miệng
-    asyncio.create_task(ai_voice.gemini_voice_loop(api_key, prompt, q_text, q_video_files, q_audio_bytes, media_path))
+    asyncio.create_task(ai_voice.gemini_voice_loop(api_key, prompt, q_text, q_video_files, q_audio_bytes, media_path, voice_name))
     
     # 2 Luồng Bơm Hình và Tiếng song song
     threading.Thread(target=audio_writer_thread, args=(q_audio_bytes, audio_pipe), daemon=True).start()

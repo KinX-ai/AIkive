@@ -7,11 +7,18 @@ import os
 from google import genai
 from google.genai import types
 
-async def gemini_voice_loop(api_key, sys_prompt, q_text, q_video_files, q_audio_bytes, base_media_path):
+async def gemini_voice_loop(api_key, sys_prompt, q_text, q_video_files, q_audio_bytes, base_media_path, voice_name):
     client = genai.Client(api_key=api_key)
     config = types.LiveConnectConfig(
         response_modalities=["AUDIO"],
-        system_instruction=types.Content(parts=[types.Part.from_text(text=sys_prompt)])
+        system_instruction=types.Content(parts=[types.Part.from_text(text=sys_prompt)]),
+        speech_config=types.SpeechConfig(
+            voice_config=types.VoiceConfig(
+                prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                    voice_name=voice_name
+                )
+            )
+        )
     )
     
     print("[Gemini] Đã khởi tạo não AI.")
