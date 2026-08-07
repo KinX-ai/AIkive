@@ -16,6 +16,7 @@ async def main_loop(media_path, rtmp_url, api_key, prompt):
         '-s', '1280x720', '-r', '30', '-i', '-', # Video Input từ pipe Python
         '-f', 'lavfi', '-i', 'anullsrc=r=44100:cl=mono', # Audio câm giả lập
         '-c:v', 'libx264', '-preset', 'ultrafast', '-b:v', '2500k',
+        '-g', '60', '-keyint_min', '60', '-sc_threshold', '0', # Sửa lỗi "Tốc độ khung hình chính" (Keyframe mỗi 2 giây)
         '-c:a', 'aac', '-ar', '44100', '-b:a', '128k',
         '-f', 'flv', rtmp_url
     ]
