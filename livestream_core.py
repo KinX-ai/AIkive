@@ -64,6 +64,13 @@ async def main_loop(media_path, rtmp_url, api_key, prompt):
     process = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE)
     cap = cv2.VideoCapture(media_path)
     
+    ret, base_frame = cap.read()
+    if not ret:
+        base_frame = cv2.imread(media_path)
+        if base_frame is None:
+            print("[Core] Lỗi: Không đọc được file mẫu!")
+            return
+            
     # Kích hoạt não AI và loa (Chạy nền)
     asyncio.create_task(fetch_dummy_comments(q_text))
     asyncio.create_task(ai_voice.gemini_voice_loop(api_key, prompt, q_text, q_audio))
@@ -76,7 +83,8 @@ async def main_loop(media_path, rtmp_url, api_key, prompt):
         if not ret:
             cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
             ret, frame = cap.read()
-            if not ret: break
+            if not ret: 
+                frame = base_frame # Nếu là ảnh tĩnh, lặp lại ảnh gốc
             
         frame = cv2.resize(frame, (1280, 720))
         
