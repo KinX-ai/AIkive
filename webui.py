@@ -7,6 +7,10 @@ import livestream_core
 importlib.reload(livestream_core)
 
 def start_livestream(media_file, rtmp_url, stream_key, api_key, prompt):
+    import importlib
+    import livestream_core
+    importlib.reload(livestream_core)
+    
     if not media_file or not rtmp_url or not stream_key or not api_key:
         yield "Lỗi: Thiếu thông tin cấu hình!", None
         return
