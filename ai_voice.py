@@ -7,7 +7,7 @@ async def gemini_voice_loop(api_key, sys_prompt, q_text, q_audio):
     
     # Cấu hình Gemini trả về Âm thanh (AUDIO)
     config = types.LiveConnectConfig(
-        response_modalities=[types.LiveModality.AUDIO],
+        response_modalities=["AUDIO"],
         system_instruction=types.Content(parts=[types.Part.from_text(text=sys_prompt)])
     )
     
