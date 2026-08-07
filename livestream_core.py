@@ -22,10 +22,20 @@ async def fetch_dummy_comments(q_text):
         await asyncio.sleep(0.5)
 
 async def audio_writer_task(q_audio, pipe_path):
-    # Mở pipe trên thread riêng để không gây deadlock với luồng Video
+    # Mở pipe trên thread riêng
     f = await asyncio.to_thread(open, pipe_path, 'wb')
+    
+    # 24000 Hz, 16-bit mono = 48000 bytes/giây. 1 frame (1/30s) = 1600 bytes
+    silence = b'\x00' * 1600
+    
     while True:
-        chunk = await q_audio.get()
+        try:
+            # Chờ âm thanh từ Gemini (timeout bằng đúng tốc độ 1 frame)
+            chunk = await asyncio.wait_for(q_audio.get(), timeout=0.033)
+        except asyncio.TimeoutError:
+            # Nếu Gemini im lặng, bơm tiếng câm (silence) để FFmpeg không bị tắc hình
+            chunk = silence
+            
         await asyncio.to_thread(f.write, chunk)
         await asyncio.to_thread(f.flush)
 
