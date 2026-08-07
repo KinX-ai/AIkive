@@ -2,7 +2,9 @@ import gradio as gr
 import threading
 import time
 import downloader
+import importlib
 import livestream_core
+importlib.reload(livestream_core)
 
 def start_livestream(media_file, rtmp_url, stream_key, api_key, prompt):
     if not media_file or not rtmp_url or not stream_key or not api_key:
