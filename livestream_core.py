@@ -55,7 +55,7 @@ async def main_loop(media_path, rtmp_url, api_key, prompt):
         '-f', 'rawvideo', '-vcodec', 'rawvideo', '-pix_fmt', 'bgr24',
         '-s', '1280x720', '-r', '30', '-i', '-', 
         '-f', 's16le', '-ar', '24000', '-ac', '1', '-i', audio_pipe, # Gemini xuất 24kHz
-        '-c:v', 'libx264', '-preset', 'ultrafast', '-b:v', '2500k',
+        '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-preset', 'ultrafast', '-b:v', '2500k',
         '-g', '60', '-keyint_min', '60', '-sc_threshold', '0', 
         '-c:a', 'aac', '-ar', '44100', '-b:a', '128k',
         '-f', 'flv', rtmp_url
