@@ -2,9 +2,7 @@ import gradio as gr
 import threading
 import time
 import downloader
-
-# Giả lập import core logic
-# from livestream_core import main_stream_logic
+import livestream_core
 
 def start_livestream(media_file, rtmp_url, stream_key, api_key, prompt):
     if not media_file or not rtmp_url or not stream_key or not api_key:
@@ -18,8 +16,8 @@ def start_livestream(media_file, rtmp_url, stream_key, api_key, prompt):
     
     yield f"Tải xong! Đang khởi động stream... \nFile: {media_file}\nĐích: {full_rtmp}", None
     
-    # ponytail: Lưu file media_file, set biến môi trường, gọi livestream_core.py chạy ngầm
-    # threading.Thread(target=main_stream_logic, args=(media_file, rtmp_url, api_key, prompt)).start()
+    # Bật luồng stream ngầm
+    threading.Thread(target=livestream_core.run_app, args=(media_file, full_rtmp, api_key, prompt), daemon=True).start()
 
 def stop_livestream():
     # ponytail: Kill thread/subprocess FFmpeg
