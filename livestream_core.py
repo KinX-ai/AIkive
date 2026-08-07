@@ -20,37 +20,60 @@ async def fetch_dummy_comments(q_text):
             await q_text.put(c)
         await asyncio.sleep(0.5)
 
-async def audio_writer_task(q_audio, pipe_path):
-    f = await asyncio.to_thread(open, pipe_path, 'wb')
+def audio_writer_thread(q_audio_bytes, pipe_path):
+    f = open(pipe_path, 'wb')
     silence = b'\x00' * 1600
     while True:
         try:
-            chunk = await asyncio.wait_for(q_audio.get(), timeout=0.033)
-        except asyncio.TimeoutError:
-            chunk = silence
-        await asyncio.to_thread(f.write, chunk)
-        await asyncio.to_thread(f.flush)
+            chunk = q_audio_bytes.get(timeout=0.033)
+            f.write(chunk)
+            f.flush()
+        except queue.Empty:
+            f.write(silence)
+            f.flush()
 
-def video_writer_task(process, media_path, base_frame):
-    cap = cv2.VideoCapture(media_path)
+def video_writer_task(process, media_path, base_frame, q_video_files):
+    current_cap = cv2.VideoCapture(media_path)
+    is_playing_ai = False
+    ai_mp4_path = ""
+    
     while True:
-        ret, frame = cap.read()
-        if not ret:
-            cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-            ret, frame = cap.read()
-            if not ret: frame = base_frame
+        # Nếu có video nhép miệng mới từ AI, ưu tiên đổi sang video AI
+        if not is_playing_ai and not q_video_files.empty():
+            ai_mp4_path = q_video_files.get()
+            current_cap.release()
+            current_cap = cv2.VideoCapture(ai_mp4_path)
+            is_playing_ai = True
+            
+        ret, frame = current_cap.read()
         
+        # Nếu hết video
+        if not ret:
+            current_cap.release()
+            if is_playing_ai:
+                # Nếu video AI chạy xong, vứt đi, quay về ảnh mẫu gốc
+                is_playing_ai = False
+                try: os.remove(ai_mp4_path)
+                except: pass
+                current_cap = cv2.VideoCapture(media_path)
+            else:
+                # Nếu video mẫu gốc chạy xong, lặp lại từ đầu
+                current_cap = cv2.VideoCapture(media_path)
+            
+            ret, frame = current_cap.read()
+            if not ret: frame = base_frame
+            
         frame = cv2.resize(frame, (1280, 720))
         try:
             process.stdin.write(frame.tobytes())
-        except Exception as e:
-            print("[Core] Lỗi đường ống Hình ảnh:", e)
+        except Exception:
             break
         time.sleep(0.033)
 
 async def main_loop(media_path, rtmp_url, api_key, prompt):
     q_text = asyncio.Queue()
-    q_audio = asyncio.Queue()
+    q_video_files = queue.Queue()
+    q_audio_bytes = queue.Queue()
     
     audio_pipe = "audio_fifo.raw"
     if os.path.exists(audio_pipe):
@@ -74,17 +97,16 @@ async def main_loop(media_path, rtmp_url, api_key, prompt):
     ret, base_frame = cap.read()
     if not ret:
         base_frame = cv2.imread(media_path)
-        if base_frame is None:
-            print("[Core] Lỗi: Không đọc được file mẫu!")
-            return
+    cap.release()
             
     asyncio.create_task(fetch_dummy_comments(q_text))
-    asyncio.create_task(ai_voice.gemini_voice_loop(api_key, prompt, q_text, q_audio))
-    asyncio.create_task(audio_writer_task(q_audio, audio_pipe))
+    # Nạp cơ miệng
+    asyncio.create_task(ai_voice.gemini_voice_loop(api_key, prompt, q_text, q_video_files, q_audio_bytes, media_path))
     
-    # Đẩy vòng lặp hình ảnh ra 1 thread riêng biệt, không dính líu event loop
-    threading.Thread(target=video_writer_task, args=(process, media_path, base_frame), daemon=True).start()
+    # 2 Luồng Bơm Hình và Tiếng song song
+    threading.Thread(target=audio_writer_thread, args=(q_audio_bytes, audio_pipe), daemon=True).start()
+    threading.Thread(target=video_writer_task, args=(process, media_path, base_frame, q_video_files), daemon=True).start()
     
-    print("[Core] FFmpeg đã chạy. Nạp frame lên:", rtmp_url)
+    print("[Core] HỆ THỐNG ĐÃ LÊN SÓNG:", rtmp_url)
     while True:
         await asyncio.sleep(1)
