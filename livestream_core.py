@@ -22,12 +22,12 @@ async def fetch_dummy_comments(q_text):
         await asyncio.sleep(0.5)
 
 async def audio_writer_task(q_audio, pipe_path):
-    # Mở pipe để ghi âm thanh từ Gemini vào FFmpeg
-    with open(pipe_path, 'wb') as f:
-        while True:
-            chunk = await q_audio.get()
-            f.write(chunk)
-            f.flush()
+    # Mở pipe trên thread riêng để không gây deadlock với luồng Video
+    f = await asyncio.to_thread(open, pipe_path, 'wb')
+    while True:
+        chunk = await q_audio.get()
+        await asyncio.to_thread(f.write, chunk)
+        await asyncio.to_thread(f.flush)
 
 async def main_loop(media_path, rtmp_url, api_key, prompt):
     q_text = asyncio.Queue()
