@@ -4,18 +4,22 @@ import cv2
 import threading
 import time
 import os
+import queue
 import ai_voice
+
+global_chat_queue = queue.Queue()
 
 def run_app(media_path, rtmp_url, api_key, prompt):
     print("[Core] Đang khởi động luồng stream ngầm...")
     asyncio.run(main_loop(media_path, rtmp_url, api_key, prompt))
 
 async def fetch_dummy_comments(q_text):
-    # ponytail: Hàm giả lập lấy comment từ Facebook. Chạy thật thì thay bằng request API.
-    comments = ["Xin chào!", "Bạn tên là gì?", "Kể chuyện vui đi"]
-    for c in comments:
-        await asyncio.sleep(15)
-        await q_text.put(c)
+    # ponytail: Quét liên tục hàng đợi từ giao diện Web UI đẩy xuống
+    while True:
+        if not global_chat_queue.empty():
+            c = global_chat_queue.get()
+            await q_text.put(c)
+        await asyncio.sleep(0.5)
 
 async def audio_writer_task(q_audio, pipe_path):
     # Mở pipe để ghi âm thanh từ Gemini vào FFmpeg

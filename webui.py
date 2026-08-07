@@ -29,6 +29,11 @@ def stop_livestream():
     # ponytail: Kill thread/subprocess FFmpeg
     return "Đã dừng."
 
+def send_test_comment(text):
+    if text.strip():
+        livestream_core.global_chat_queue.put(text)
+    return "" # Xoá trắng ô nhập sau khi gửi
+
 with gr.Blocks(title="AI Livestream Control Panel") as ui:
     gr.Markdown("## 🔴 Bảng điều khiển AI Livestream")
     
@@ -50,9 +55,16 @@ with gr.Blocks(title="AI Livestream Control Panel") as ui:
     with gr.Row():
         status_out = gr.Textbox(label="Trạng thái hệ thống", interactive=False)
         preview_out = gr.Image(label="Live Preview (Hình trích xuất ngẫu nhiên)", interactive=False)
+        
+    gr.Markdown("### 💬 Test Tương Tác AI (Chỉ hoạt động khi Stream đang chạy)")
+    with gr.Row():
+        test_comment_in = gr.Textbox(label="Nhập comment để AI đọc", placeholder="VD: Hôm nay bạn khỏe không?", scale=4)
+        btn_send = gr.Button("Gửi cho AI", variant="secondary", scale=1)
 
     btn_start.click(fn=start_livestream, inputs=[media_in, rtmp_in, stream_key_in, api_key_in, prompt_in], outputs=[status_out, preview_out])
     btn_stop.click(fn=stop_livestream, inputs=[], outputs=status_out)
+    btn_send.click(fn=send_test_comment, inputs=test_comment_in, outputs=test_comment_in)
+    test_comment_in.submit(fn=send_test_comment, inputs=test_comment_in, outputs=test_comment_in)
 
 if __name__ == "__main__":
     # share=True để Colab tự tạo public link (xyz.gradio.live)
