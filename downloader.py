@@ -18,6 +18,14 @@ def setup_all():
         subprocess.run(["pip", "install", "gdown"], check=True)
         subprocess.run(["gdown", "--id", "17zHNQ3KJYDPKpHStcrpdD_T8B_6v_B9X", "-O", "Wav2Lip/checkpoints/wav2lip_gan.pth"])
         
+        print("[Setup] Cập nhật Wav2Lip requirements (Bỏ khoá version cũ)...")
+        import re
+        with open("Wav2Lip/requirements.txt", "r") as f:
+            reqs = f.read()
+        reqs = re.sub(r'==.*', '', reqs)
+        with open("Wav2Lip/requirements.txt", "w") as f:
+            f.write(reqs)
+            
         print("[Setup] Cài đặt dependencies phụ...")
         subprocess.run(["pip", "install", "-r", "Wav2Lip/requirements.txt"], check=True)
         print("[Setup] Hoàn tất tải module!")
