@@ -3,20 +3,46 @@ import subprocess
 import cv2
 import threading
 import time
+import os
+import ai_voice
 
 def run_app(media_path, rtmp_url, api_key, prompt):
     print("[Core] Đang khởi động luồng stream ngầm...")
     asyncio.run(main_loop(media_path, rtmp_url, api_key, prompt))
 
+async def fetch_dummy_comments(q_text):
+    # ponytail: Hàm giả lập lấy comment từ Facebook. Chạy thật thì thay bằng request API.
+    comments = ["Xin chào!", "Bạn tên là gì?", "Kể chuyện vui đi"]
+    for c in comments:
+        await asyncio.sleep(15)
+        await q_text.put(c)
+
+async def audio_writer_task(q_audio, pipe_path):
+    # Mở pipe để ghi âm thanh từ Gemini vào FFmpeg
+    with open(pipe_path, 'wb') as f:
+        while True:
+            chunk = await q_audio.get()
+            f.write(chunk)
+            f.flush()
+
 async def main_loop(media_path, rtmp_url, api_key, prompt):
-    # Lệnh FFmpeg đẩy video thô (rawvideo) từ stdin và ghép âm thanh giả (anullsrc) để test
+    q_text = asyncio.Queue()
+    q_audio = asyncio.Queue()
+    
+    # Tạo ống nước ảo (Named Pipe) cho âm thanh trên Colab/Linux
+    audio_pipe = "audio_fifo.raw"
+    if os.path.exists(audio_pipe):
+        os.remove(audio_pipe)
+    os.mkfifo(audio_pipe)
+    
+    # Lệnh FFmpeg: Hút video từ stdin (-i -), hút tiếng từ audio_fifo (-i audio_fifo.raw)
     ffmpeg_cmd = [
         'ffmpeg', '-y', '-re',
         '-f', 'rawvideo', '-vcodec', 'rawvideo', '-pix_fmt', 'bgr24',
-        '-s', '1280x720', '-r', '30', '-i', '-', # Video Input từ pipe Python
-        '-f', 'lavfi', '-i', 'anullsrc=r=44100:cl=mono', # Audio câm giả lập
+        '-s', '1280x720', '-r', '30', '-i', '-', 
+        '-f', 's16le', '-ar', '24000', '-ac', '1', '-i', audio_pipe, # Gemini xuất 24kHz
         '-c:v', 'libx264', '-preset', 'ultrafast', '-b:v', '2500k',
-        '-g', '60', '-keyint_min', '60', '-sc_threshold', '0', # Sửa lỗi "Tốc độ khung hình chính" (Keyframe mỗi 2 giây)
+        '-g', '60', '-keyint_min', '60', '-sc_threshold', '0', 
         '-c:a', 'aac', '-ar', '44100', '-b:a', '128k',
         '-f', 'flv', rtmp_url
     ]
@@ -24,12 +50,16 @@ async def main_loop(media_path, rtmp_url, api_key, prompt):
     process = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE)
     cap = cv2.VideoCapture(media_path)
     
-    print("[Core] FFmpeg đã chạy. Đang nạp frame liên tục lên:", rtmp_url)
+    # Kích hoạt não AI và loa (Chạy nền)
+    asyncio.create_task(fetch_dummy_comments(q_text))
+    asyncio.create_task(ai_voice.gemini_voice_loop(api_key, prompt, q_text, q_audio))
+    asyncio.create_task(audio_writer_task(q_audio, audio_pipe))
+    
+    print("[Core] FFmpeg đã chạy. Nạp frame lên:", rtmp_url)
     
     while True:
         ret, frame = cap.read()
         if not ret:
-            # Hết video thì lặp lại từ đầu
             cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
             ret, frame = cap.read()
             if not ret: break
@@ -37,11 +67,9 @@ async def main_loop(media_path, rtmp_url, api_key, prompt):
         frame = cv2.resize(frame, (1280, 720))
         
         try:
-            # Đẩy byte thô vào stdin của FFmpeg
             process.stdin.write(frame.tobytes())
         except Exception as e:
             print("[Core] Lỗi đường ống FFmpeg:", e)
             break
             
-        # Nghỉ 0.033s = ~30 FPS
         await asyncio.sleep(0.033)
